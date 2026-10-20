@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: astraea
+      POSTGRES_USER: astraea
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - astraea_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U astraea -d astraea"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [astraea]
+
+  bot:
+    build: .
+    restart: unless-stopped
+    environment:
+      DISCORD_TOKEN: ${DISCORD_TOKEN:?Set DISCORD_TOKEN in the environment}
+      CLIENT_ID: ${CLIENT_ID:?Set CLIENT_ID}
+      GUILD_ID: ${GUILD_ID:-1389355523316519002}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: postgresql://astraea:${POSTGRES_PASSWORD}@postgres:5432/astraea?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [astraea]
+    stop_grace_period: 30s
+
+volumes:
+  astraea_pgdata:
+
+networks:
+  astraea:
+    driver: bridge

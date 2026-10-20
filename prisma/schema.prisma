@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ApplicationStatus {
+  DRAFT
+  NEW
+  IN_REVIEW
+  NEEDS_INFO
+  ON_HOLD
+  APPROVED
+  REJECTED
+  APPEAL
+  CANCELLED
+}
+
+enum ApplicationPermission {
+  CURATOR
+  MODERATOR
+  SENIOR_MODERATOR
+  APPLICATION_ADMIN
+}
+
+enum AuditAction {
+  CREATED
+  DRAFT_SAVED
+  SUBMITTED
+  STATUS_CHANGED
+  ASSIGNED
+  REASSIGNED
+  INFO_REQUESTED
+  INFO_RECEIVED
+  ROLE_GRANTED
+  ROLE_GRANT_FAILED
+  DM_SENT
+  DM_FAILED
+  BANNED
+  CONFIG_CHANGED
+  EXPORTED
+}
+
+model GuildConfig {
+  guildId                 String   @id
+  panelChannelId          String?
+  panelMessageId          String?
+  moderationChannelId     String?
+  auditChannelId          String?
+  applicantRoleId         String?
+  curatorRoleId           String?
+  moderatorRoleId         String?
+  seniorModeratorRoleId   String?
+  applicationAdminRoleId  String?
+  memberRoleId            String?
+  defaultGameRoleId       String?
+  reviewDeadlineHours     Int      @default(72)
+  cooldownDays            Int      @default(14)
+  appealsEnabled          Boolean  @default(false)
+  createPrivateThread     Boolean  @default(true)
+  questions               Json?
+  dmTemplates             Json?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+model TrustedAdmin {
+  id        String   @id @default(cuid())
+  guildId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@unique([guildId, userId])
+  @@index([guildId])
+}
+
+model ApplicantState {
+  id                  String       @id @default(cuid())
+  guildId             String
+  userId              String
+  activeApplicationId String?      @unique
+  cooldownUntil       DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  activeApplication   Application? @relation("ActiveApplication", fields: [activeApplicationId], references: [id], onDelete: SetNull)
+
+  @@unique([guildId, userId])
+  @@index([cooldownUntil])
+}
+
+model Application {
+  id                    String            @id @default(cuid())
+  number                Int               @default(autoincrement())
+  guildId               String
+  applicantId           String
+  status                ApplicationStatus @default(DRAFT)
+  gameNickname          String?
+  projectServer         String?
+  timezone              String?
+  ageRange              String?
+  previousExperience    String?
+  motivation            String?
+  contribution          String?
+  weeklyActivity        String?
+  profileUrl            String?
+  acceptedRules         Boolean           @default(false)
+  confirmedHonesty      Boolean           @default(false)
+  contact               String?
+  assignedModeratorId   String?
+  reason                String?
+  submittedAt           DateTime?
+  reviewDeadlineAt      DateTime?
+  cooldownUntil         DateTime?
+  dmChannelId           String?
+  dmStatusMessageId     String?
+  moderationChannelId   String?
+  moderationMessageId   String?
+  threadId              String?
+  suspicionFlags        String[]          @default([])
+  version               Int               @default(0)
+  dmSyncedVersion       Int               @default(-1)
+  modSyncedVersion      Int               @default(-1)
+  lastDmAttemptAt       DateTime?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  audits                AuditLog[]
+  activeFor              ApplicantState?   @relation("ActiveApplication")
+
+  @@unique([guildId, number])
+  @@index([guildId, applicantId, status])
+  @@index([guildId, status, submittedAt])
+  @@index([assignedModeratorId])
+}
+
+model AuditLog {
+  id            String      @id @default(cuid())
+  guildId       String
+  applicationId String?
+  actorId       String
+  action        AuditAction
+  fromStatus    ApplicationStatus?
+  toStatus      ApplicationStatus?
+  reason        String?
+  metadata      Json?
+  createdAt     DateTime    @default(now())
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  @@index([guildId, createdAt])
+  @@index([applicationId, createdAt])
+}
+
+model ApplicationBan {
+  id        String   @id @default(cuid())
+  guildId   String
+  userId    String
+  reason    String
+  actorId   String
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@unique([guildId, userId])
+  @@index([expiresAt])
+}
+
+model MessageTemplate {
+  id        String   @id @default(cuid())
+  guildId   String
+  key       String
+  content   String
+  updatedBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([guildId, key])
+}

@@ -1,0 +1,27 @@
+CREATE TYPE "ApplicationStatus" AS ENUM ('DRAFT','NEW','IN_REVIEW','NEEDS_INFO','ON_HOLD','APPROVED','REJECTED','APPEAL','CANCELLED');
+CREATE TYPE "ApplicationPermission" AS ENUM ('CURATOR','MODERATOR','SENIOR_MODERATOR','APPLICATION_ADMIN');
+CREATE TYPE "AuditAction" AS ENUM ('CREATED','DRAFT_SAVED','SUBMITTED','STATUS_CHANGED','ASSIGNED','REASSIGNED','INFO_REQUESTED','INFO_RECEIVED','ROLE_GRANTED','ROLE_GRANT_FAILED','DM_SENT','DM_FAILED','BANNED','CONFIG_CHANGED','EXPORTED');
+
+CREATE TABLE "GuildConfig" ("guildId" TEXT PRIMARY KEY,"panelChannelId" TEXT,"panelMessageId" TEXT,"moderationChannelId" TEXT,"auditChannelId" TEXT,"applicantRoleId" TEXT,"curatorRoleId" TEXT,"moderatorRoleId" TEXT,"seniorModeratorRoleId" TEXT,"applicationAdminRoleId" TEXT,"memberRoleId" TEXT,"defaultGameRoleId" TEXT,"reviewDeadlineHours" INTEGER NOT NULL DEFAULT 72,"cooldownDays" INTEGER NOT NULL DEFAULT 14,"appealsEnabled" BOOLEAN NOT NULL DEFAULT false,"createPrivateThread" BOOLEAN NOT NULL DEFAULT true,"questions" JSONB,"dmTemplates" JSONB,"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,"updatedAt" TIMESTAMP(3) NOT NULL);
+CREATE TABLE "TrustedAdmin" ("id" TEXT PRIMARY KEY,"guildId" TEXT NOT NULL,"userId" TEXT NOT NULL,"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE UNIQUE INDEX "TrustedAdmin_guildId_userId_key" ON "TrustedAdmin"("guildId","userId");
+CREATE INDEX "TrustedAdmin_guildId_idx" ON "TrustedAdmin"("guildId");
+CREATE TABLE "Application" ("id" TEXT PRIMARY KEY,"number" SERIAL NOT NULL,"guildId" TEXT NOT NULL,"applicantId" TEXT NOT NULL,"status" "ApplicationStatus" NOT NULL DEFAULT 'DRAFT',"gameNickname" TEXT,"projectServer" TEXT,"timezone" TEXT,"ageRange" TEXT,"previousExperience" TEXT,"motivation" TEXT,"contribution" TEXT,"weeklyActivity" TEXT,"profileUrl" TEXT,"acceptedRules" BOOLEAN NOT NULL DEFAULT false,"confirmedHonesty" BOOLEAN NOT NULL DEFAULT false,"contact" TEXT,"assignedModeratorId" TEXT,"reason" TEXT,"submittedAt" TIMESTAMP(3),"reviewDeadlineAt" TIMESTAMP(3),"cooldownUntil" TIMESTAMP(3),"dmChannelId" TEXT,"dmStatusMessageId" TEXT,"moderationChannelId" TEXT,"moderationMessageId" TEXT,"threadId" TEXT,"suspicionFlags" TEXT[] DEFAULT ARRAY[]::TEXT[],"version" INTEGER NOT NULL DEFAULT 0,"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,"updatedAt" TIMESTAMP(3) NOT NULL);
+CREATE UNIQUE INDEX "Application_guildId_number_key" ON "Application"("guildId","number");
+CREATE INDEX "Application_guildId_applicantId_status_idx" ON "Application"("guildId","applicantId","status");
+CREATE INDEX "Application_guildId_status_submittedAt_idx" ON "Application"("guildId","status","submittedAt");
+CREATE INDEX "Application_assignedModeratorId_idx" ON "Application"("assignedModeratorId");
+CREATE TABLE "ApplicantState" ("id" TEXT PRIMARY KEY,"guildId" TEXT NOT NULL,"userId" TEXT NOT NULL,"activeApplicationId" TEXT,"cooldownUntil" TIMESTAMP(3),"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,"updatedAt" TIMESTAMP(3) NOT NULL);
+CREATE UNIQUE INDEX "ApplicantState_guildId_userId_key" ON "ApplicantState"("guildId","userId");
+CREATE UNIQUE INDEX "ApplicantState_activeApplicationId_key" ON "ApplicantState"("activeApplicationId");
+CREATE INDEX "ApplicantState_cooldownUntil_idx" ON "ApplicantState"("cooldownUntil");
+CREATE TABLE "AuditLog" ("id" TEXT PRIMARY KEY,"guildId" TEXT NOT NULL,"applicationId" TEXT,"actorId" TEXT NOT NULL,"action" "AuditAction" NOT NULL,"fromStatus" "ApplicationStatus","toStatus" "ApplicationStatus","reason" TEXT,"metadata" JSONB,"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX "AuditLog_guildId_createdAt_idx" ON "AuditLog"("guildId","createdAt");
+CREATE INDEX "AuditLog_applicationId_createdAt_idx" ON "AuditLog"("applicationId","createdAt");
+CREATE TABLE "ApplicationBan" ("id" TEXT PRIMARY KEY,"guildId" TEXT NOT NULL,"userId" TEXT NOT NULL,"reason" TEXT NOT NULL,"actorId" TEXT NOT NULL,"expiresAt" TIMESTAMP(3),"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE UNIQUE INDEX "ApplicationBan_guildId_userId_key" ON "ApplicationBan"("guildId","userId");
+CREATE INDEX "ApplicationBan_expiresAt_idx" ON "ApplicationBan"("expiresAt");
+CREATE TABLE "MessageTemplate" ("id" TEXT PRIMARY KEY,"guildId" TEXT NOT NULL,"key" TEXT NOT NULL,"content" TEXT NOT NULL,"updatedBy" TEXT NOT NULL,"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,"updatedAt" TIMESTAMP(3) NOT NULL);
+CREATE UNIQUE INDEX "MessageTemplate_guildId_key_key" ON "MessageTemplate"("guildId","key");
+ALTER TABLE "ApplicantState" ADD CONSTRAINT "ApplicantState_activeApplicationId_fkey" FOREIGN KEY ("activeApplicationId") REFERENCES "Application"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "Application"("id") ON DELETE SET NULL ON UPDATE CASCADE;

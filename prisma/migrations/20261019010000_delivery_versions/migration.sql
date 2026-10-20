@@ -1,0 +1,3 @@
+ALTER TABLE "Application" ADD COLUMN "dmSyncedVersion" INTEGER NOT NULL DEFAULT -1;
+ALTER TABLE "Application" ADD COLUMN "modSyncedVersion" INTEGER NOT NULL DEFAULT -1;
+ALTER TABLE "Application" ADD COLUMN "lastDmAttemptAt" TIMESTAMP(3);
